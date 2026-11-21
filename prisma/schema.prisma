@@ -1,0 +1,499 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Agent {
+  id        String   @id @default(cuid())
+  agentCode String   @unique
+  name      String
+  email     String?
+  phone     String?
+  city      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  quotes    Quote[]
+
+  @@map("agent")
+}
+
+model Manual {
+  id             Int                @id @default(autoincrement())
+  name           String
+  policyTypeCode String
+  startDate      DateTime
+  endDate        DateTime?
+  status         String             @default("A")
+  maxRisks       Int                @default(5)
+  sourceManualId Int?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  views          ManualView[]
+  pages          ManualPage[]
+  sections       ManualSection[]
+  rateSteps      RateStep[]
+  rateFactors    RateFactor[]
+  rateBands      RateBand[]
+  templates      DocumentTemplate[]
+  quotes         Quote[]
+
+  @@map("manual")
+}
+
+model ManualView {
+  id            Int              @id @default(autoincrement())
+  manualId      Int
+  name          String
+  userClassList String           @default("ALL")
+  quoteCodeList String           @default("A")
+  properties    Json             @default("{}")
+  navigation    Json             @default("{}")
+  notes         String?
+  manual        Manual           @relation(fields: [manualId], references: [id], onDelete: Cascade)
+  viewPages     ManualViewPage[]
+
+  @@index([manualId])
+  @@map("manual_view")
+}
+
+model ManualPage {
+  id           Int                 @id @default(autoincrement())
+  manualId     Int
+  name         String
+  heading      String?
+  subHeading   String?
+  properties   Json                @default("{}")
+  disableCode  String?
+  notes        String?
+  manual       Manual              @relation(fields: [manualId], references: [id], onDelete: Cascade)
+  viewPages    ManualViewPage[]
+  pageSections ManualPageSection[]
+
+  @@index([manualId])
+  @@map("manual_page")
+}
+
+model ManualViewPage {
+  id                Int        @id @default(autoincrement())
+  viewId            Int
+  pageId            Int
+  pageOrder         Int        @default(0)
+  progressMilestone Boolean    @default(true)
+  buttonText        String?
+  properties        Json       @default("{}")
+  restrict          String?
+  view              ManualView @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  page              ManualPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([viewId, pageId])
+  @@index([viewId, pageOrder])
+  @@map("manual_view_page")
+}
+
+model ManualSection {
+  id           Int                 @id @default(autoincrement())
+  manualId     Int
+  name         String
+  heading      String?
+  subHeading   String?
+  properties   Json                @default("{}")
+  disableCode  String?
+  notes        String?
+  manual       Manual              @relation(fields: [manualId], references: [id], onDelete: Cascade)
+  pageSections ManualPageSection[]
+  questions    ManualQuestion[]
+
+  @@index([manualId])
+  @@map("manual_section")
+}
+
+model ManualPageSection {
+  id           Int           @id @default(autoincrement())
+  pageId       Int
+  sectionId    Int
+  sectionOrder Int           @default(0)
+  areaNum      Int           @default(1)
+  properties   Json          @default("{}")
+  restrict     String?
+  page         ManualPage    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  section      ManualSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, sectionOrder])
+  @@map("manual_page_section")
+}
+
+model ManualQuestion {
+  id               Int            @id @default(autoincrement())
+  sectionId        Int
+  questionOrder    Int            @default(0)
+  questionText     String?
+  questionTypeCode String
+  fieldName        String?
+  fieldType        String?
+  riskSpecific     Boolean        @default(false)
+  required         Boolean        @default(false)
+  minValue         Decimal?
+  maxValue         Decimal?
+  placeholder      String?
+  userHelp         String?
+  disableCode      String?
+  leftCols         Int            @default(4)
+  rightCols        Int            @default(8)
+  properties       Json           @default("{}")
+  notes            String?
+  section          ManualSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  choices          ManualChoice[]
+
+  @@index([sectionId, questionOrder])
+  @@map("manual_question")
+}
+
+model ManualChoice {
+  id          Int            @id @default(autoincrement())
+  questionId  Int
+  choiceValue String
+  choiceText  String
+  isDefault   Boolean        @default(false)
+  sortOrder   Int            @default(0)
+  disableCode String?
+  question    ManualQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, sortOrder])
+  @@map("manual_choice")
+}
+
+model RateStep {
+  id             Int       @id @default(autoincrement())
+  manualId       Int
+  rateOrder      Int
+  fieldName      String
+  description    String?
+  rateMode       String
+  rateParameters String?
+  rateConditions String?
+  rateApplyTo    String?
+  scope          String    @default("RISK")
+  coverageCode   String?
+  displayOrder   Int?
+  startDate      DateTime?
+  endDate        DateTime?
+  manual         Manual    @relation(fields: [manualId], references: [id], onDelete: Cascade)
+
+  @@index([manualId, rateOrder])
+  @@map("rate_step")
+}
+
+model RateFactor {
+  id            Int      @id @default(autoincrement())
+  manualId      Int
+  fieldName     String
+  key1          String   @default("x")
+  key2          String   @default("x")
+  key3          String   @default("x")
+  key4          String   @default("x")
+  key5          String   @default("x")
+  effectiveDate DateTime @default(dbgenerated("'1900-01-01'::timestamp"))
+  numericValue  Decimal?
+  stringValue   String?
+  manual        Manual   @relation(fields: [manualId], references: [id], onDelete: Cascade)
+
+  @@index([manualId, fieldName, key1, key2, key3])
+  @@map("rate_factor")
+}
+
+model RateBand {
+  id            Int      @id @default(autoincrement())
+  manualId      Int
+  fieldName     String
+  key1          String   @default("x")
+  key2          String   @default("x")
+  key3          String   @default("x")
+  effectiveDate DateTime @default(dbgenerated("'1900-01-01'::timestamp"))
+  upTo          Decimal
+  numericValue  Decimal
+  manual        Manual   @relation(fields: [manualId], references: [id], onDelete: Cascade)
+
+  @@index([manualId, fieldName, key1, key2, key3])
+  @@map("rate_band")
+}
+
+model Quote {
+  id                 Int                  @id @default(autoincrement())
+  quoteNumber        String               @unique
+  manualId           Int
+  viewId             Int?
+  currentPageId      Int?
+  furthestPageOrder  Int                  @default(0)
+  quoteCode          String               @default("A")
+  statusCode         String               @default("P")
+  statusDate         DateTime             @default(now())
+  agentId            String?
+  userId             String
+  effectiveDate      DateTime?
+  applicantName      String?
+  applicantMobile    String?
+  applicantEmail     String?
+  registrationNumber String?
+  data               Json                 @default("{}")
+  ratingValid        Boolean              @default(false)
+  totalPremium       Decimal?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  manual             Manual               @relation(fields: [manualId], references: [id])
+  agent              Agent?               @relation(fields: [agentId], references: [id])
+  ratingResults      QuoteRatingResult[]
+  rateFlow           QuoteRateFlow[]
+  payments           Payment[]
+  policy             Policy?
+  esignDocuments     EsignDocument[]
+  esignAuthorizations EsignAuthorization[]
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([statusCode])
+  @@map("quote")
+}
+
+model QuoteRatingResult {
+  id            Int     @id @default(autoincrement())
+  quoteId       Int
+  seq           Int
+  risk          Int
+  fieldName     String
+  description   String?
+  coverageCode  String?
+  premiumAmount Decimal
+  runningBase   Decimal
+  adjustBase    Boolean @default(true)
+  quote         Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, seq])
+  @@map("quote_rating_result")
+}
+
+model QuoteRateFlow {
+  id          Int      @id @default(autoincrement())
+  quoteId     Int
+  seq         Int
+  risk        Int
+  rateOrder   Int
+  fieldName   String
+  rateMode    String
+  flowValue   String?
+  flowInfo    String?
+  flowPremium Decimal?
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, seq])
+  @@map("quote_rate_flow")
+}
+
+model Payment {
+  id        Int       @id @default(autoincrement())
+  quoteId   Int
+  amount    Decimal
+  method    String
+  status    String
+  reference String    @unique
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  quote     Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@map("payment")
+}
+
+model Policy {
+  id             Int      @id @default(autoincrement())
+  policyNumber   String   @unique
+  quoteId        Int      @unique
+  effectiveDate  DateTime
+  expirationDate DateTime
+  totalPremium   Decimal
+  status         String   @default("ACTIVE")
+  snapshot       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  quote          Quote    @relation(fields: [quoteId], references: [id])
+
+  @@map("policy")
+}
+
+model DocumentTemplate {
+  id          Int             @id @default(autoincrement())
+  manualId    Int
+  code        String
+  title       String
+  kind        String
+  condition   String?
+  body        Json            @default("{}")
+  signerRoles String          @default("INSURED")
+  sortOrder   Int             @default(0)
+  manual      Manual          @relation(fields: [manualId], references: [id], onDelete: Cascade)
+  documents   EsignDocument[]
+
+  @@unique([manualId, code])
+  @@map("document_template")
+}
+
+model EsignAuthorization {
+  id            String           @id
+  quoteId       Int
+  signerRole    String           @default("INSURED")
+  contactName   String
+  contactEmail  String
+  otpHash       String?
+  otpExpiresAt  DateTime?
+  otpSentAt     DateTime?
+  otpAttempts   Int              @default(0)
+  signatureText String?
+  initialsText  String?
+  statusCode    String           @default("N")
+  ipAddress     String?
+  createdAt     DateTime         @default(now())
+  authorizedAt  DateTime?
+  completedAt   DateTime?
+  quote         Quote            @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  signatures    EsignSignature[]
+
+  @@index([quoteId])
+  @@map("esign_authorization")
+}
+
+model EsignDocument {
+  id          Int              @id @default(autoincrement())
+  quoteId     Int
+  templateId  Int
+  title       String
+  statusCode  String           @default("N")
+  unsignedPdf Bytes?
+  signedPdf   Bytes?
+  sha256      String?
+  createdAt   DateTime         @default(now())
+  quote       Quote            @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  template    DocumentTemplate @relation(fields: [templateId], references: [id])
+  signatures  EsignSignature[]
+
+  @@index([quoteId])
+  @@map("esign_document")
+}
+
+model EsignSignature {
+  id              Int                @id @default(autoincrement())
+  documentId      Int
+  authorizationId String
+  documentRole    String             @default("INSURED")
+  statusCode      String             @default("N")
+  signedAt        DateTime?
+  ipAddress       String?
+  document        EsignDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  authorization   EsignAuthorization @relation(fields: [authorizationId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([authorizationId])
+  @@map("esign_signature")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  detail    String?
+  ipAddress String?
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@map("audit_log")
+}
+
+model User {
+  id               String      @id
+  name             String
+  email            String      @unique
+  emailVerified    Boolean     @default(false)
+  image            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  role             String?
+  banned           Boolean?    @default(false)
+  banReason        String?
+  banExpires       DateTime?
+  twoFactorEnabled Boolean?    @default(false)
+  agentId          String?
+  sessions         Session[]
+  accounts         Account[]
+  twoFactors       TwoFactor[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("twoFactor")
+}
