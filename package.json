@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
-    "e2e": "tsx --conditions=react-server scripts/e2e.ts"
+    "e2e": "tsx --conditions=react-server scripts/e2e.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
